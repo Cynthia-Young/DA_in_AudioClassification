@@ -1,0 +1,128 @@
+==========================================
+dset:m2s
+gpu_id:0
+max_epoch:50
+batch_size:32
+mozilla_batch_size:32
+worker:4
+lr:0.01
+seed:2020
+cls_par:0.3
+ent_par:1.0
+gent:True
+ent:True
+bottleneck:9
+layer:wn
+classifier:bn
+smooth:0.1
+ssl:0
+output:
+issave:True
+freeze_base:False
+augmentation:mixup
+class_num:3
+pretrained_checkpoint_path:code/Cnn14_mAP=0.431.pth
+output_dir:seed2020/m2s
+savename:par_0.3
+out_file:<_io.TextIOWrapper name='seed2020/m2s/log_tar_par_0.3.txt' mode='w' encoding='UTF-8'>
+
+Accuracy = 46.16% -> 49.45%
+Train Target Task: m2s, Iter:26/1300; Accuracy = 46.02%
+Accuracy = 41.66% -> 40.68%
+Train Target Task: m2s, Iter:52/1300; Accuracy = 48.30%
+Accuracy = 41.29% -> 40.32%
+Train Target Task: m2s, Iter:78/1300; Accuracy = 45.45%
+Accuracy = 42.02% -> 41.17%
+Train Target Task: m2s, Iter:104/1300; Accuracy = 46.31%
+Accuracy = 41.05% -> 42.14%
+Train Target Task: m2s, Iter:130/1300; Accuracy = 44.89%
+Accuracy = 43.36% -> 44.09%
+Train Target Task: m2s, Iter:156/1300; Accuracy = 44.32%
+Accuracy = 43.12% -> 45.07%
+Train Target Task: m2s, Iter:182/1300; Accuracy = 44.60%
+Accuracy = 45.07% -> 45.80%
+Train Target Task: m2s, Iter:208/1300; Accuracy = 44.60%
+Accuracy = 46.41% -> 46.29%
+Train Target Task: m2s, Iter:234/1300; Accuracy = 44.32%
+Accuracy = 46.65% -> 46.53%
+Train Target Task: m2s, Iter:260/1300; Accuracy = 44.60%
+Accuracy = 46.65% -> 46.65%
+Train Target Task: m2s, Iter:286/1300; Accuracy = 44.60%
+Accuracy = 45.68% -> 46.41%
+Train Target Task: m2s, Iter:312/1300; Accuracy = 46.88%
+Accuracy = 48.48% -> 47.62%
+Train Target Task: m2s, Iter:338/1300; Accuracy = 45.17%
+Accuracy = 46.16% -> 46.77%
+Train Target Task: m2s, Iter:364/1300; Accuracy = 44.32%
+Accuracy = 46.65% -> 46.77%
+Train Target Task: m2s, Iter:390/1300; Accuracy = 45.17%
+Accuracy = 45.43% -> 46.04%
+Train Target Task: m2s, Iter:416/1300; Accuracy = 45.74%
+Accuracy = 46.53% -> 46.77%
+Train Target Task: m2s, Iter:442/1300; Accuracy = 45.45%
+Accuracy = 46.16% -> 46.29%
+Train Target Task: m2s, Iter:468/1300; Accuracy = 43.47%
+Accuracy = 45.80% -> 45.43%
+Train Target Task: m2s, Iter:494/1300; Accuracy = 45.45%
+Accuracy = 47.02% -> 46.77%
+Train Target Task: m2s, Iter:520/1300; Accuracy = 44.03%
+Accuracy = 45.19% -> 45.80%
+Train Target Task: m2s, Iter:546/1300; Accuracy = 44.32%
+Accuracy = 45.43% -> 46.41%
+Train Target Task: m2s, Iter:572/1300; Accuracy = 44.89%
+Accuracy = 47.02% -> 47.50%
+Train Target Task: m2s, Iter:598/1300; Accuracy = 45.45%
+Accuracy = 47.14% -> 47.14%
+Train Target Task: m2s, Iter:624/1300; Accuracy = 45.45%
+Accuracy = 46.65% -> 46.65%
+Train Target Task: m2s, Iter:650/1300; Accuracy = 44.60%
+Accuracy = 46.41% -> 47.14%
+Train Target Task: m2s, Iter:676/1300; Accuracy = 46.59%
+Accuracy = 47.75% -> 47.62%
+Train Target Task: m2s, Iter:702/1300; Accuracy = 45.45%
+Accuracy = 46.89% -> 47.14%
+Train Target Task: m2s, Iter:728/1300; Accuracy = 45.45%
+Accuracy = 46.53% -> 46.77%
+Train Target Task: m2s, Iter:754/1300; Accuracy = 45.74%
+Accuracy = 47.02% -> 47.14%
+Train Target Task: m2s, Iter:780/1300; Accuracy = 44.89%
+Accuracy = 46.41% -> 46.77%
+Train Target Task: m2s, Iter:806/1300; Accuracy = 44.03%
+Accuracy = 45.68% -> 46.04%
+Train Target Task: m2s, Iter:832/1300; Accuracy = 45.45%
+Accuracy = 47.14% -> 47.02%
+Train Target Task: m2s, Iter:858/1300; Accuracy = 46.02%
+Accuracy = 47.14% -> 47.14%
+Train Target Task: m2s, Iter:884/1300; Accuracy = 45.74%
+Accuracy = 47.14% -> 47.14%
+Train Target Task: m2s, Iter:910/1300; Accuracy = 46.31%
+Accuracy = 47.50% -> 47.14%
+Train Target Task: m2s, Iter:936/1300; Accuracy = 45.74%
+Accuracy = 47.14% -> 47.14%
+Train Target Task: m2s, Iter:962/1300; Accuracy = 45.17%
+Accuracy = 47.02% -> 46.89%
+Train Target Task: m2s, Iter:988/1300; Accuracy = 44.89%
+Accuracy = 45.80% -> 46.29%
+Train Target Task: m2s, Iter:1014/1300; Accuracy = 45.45%
+Accuracy = 47.50% -> 47.38%
+Train Target Task: m2s, Iter:1040/1300; Accuracy = 45.45%
+Accuracy = 46.53% -> 46.77%
+Train Target Task: m2s, Iter:1066/1300; Accuracy = 45.45%
+Accuracy = 46.77% -> 46.65%
+Train Target Task: m2s, Iter:1092/1300; Accuracy = 45.74%
+Accuracy = 46.53% -> 46.77%
+Train Target Task: m2s, Iter:1118/1300; Accuracy = 45.17%
+Accuracy = 45.92% -> 46.29%
+Train Target Task: m2s, Iter:1144/1300; Accuracy = 45.45%
+Accuracy = 46.41% -> 46.53%
+Train Target Task: m2s, Iter:1170/1300; Accuracy = 46.02%
+Accuracy = 47.14% -> 47.02%
+Train Target Task: m2s, Iter:1196/1300; Accuracy = 46.02%
+Accuracy = 47.02% -> 47.02%
+Train Target Task: m2s, Iter:1222/1300; Accuracy = 46.31%
+Accuracy = 47.38% -> 47.14%
+Train Target Task: m2s, Iter:1248/1300; Accuracy = 46.59%
+Accuracy = 47.62% -> 46.77%
+Train Target Task: m2s, Iter:1274/1300; Accuracy = 45.17%
+Accuracy = 46.53% -> 46.53%
+Train Target Task: m2s, Iter:1300/1300; Accuracy = 45.45%

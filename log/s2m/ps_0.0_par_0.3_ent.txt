@@ -1,0 +1,64 @@
+==========================================
+==========       config      =============
+==========================================
+gpu_id:0
+output:ckps_mm
+output_tar:
+seed:2020
+max_epoch:400
+batch_size:16
+worker:16
+bottleneck_dim:9
+dset:s2m
+lr:0.01
+alpha:0.1
+lambda_u:100
+T:0.5
+ema_decay:0.999
+cls_par:0.3
+ssl:0.0
+ps:0.0
+choice:ent
+model:target
+layer:wn
+classifier:bn
+bottleneck:9
+class_num:3
+output_dir:seed2020/s2m
+savename:par_0.3
+log:ps_0.0_par_0.3
+mm_dir:ckps_mm/seed2020/s2m
+out_file:<_io.TextIOWrapper name='ckps_mm/seed2020/s2m/ps_0.0_par_0.3_ent.txt' mode='w' encoding='UTF-8'>
+
+==========================================
+
+Task: s2m_test, Iter:0/0; Accuracy = 32.55%; Mean Ent = 0.0564
+Task: s2m_train, Iter:0/0; Accuracy = 33.29%; Mean Ent = 0.0391
+Task: 0.88
+Task: s2m_train, Iter:1720/17200; Accuracy = 67.21%; Mean Ent = 0.4480
+Task: s2m_test, Iter:1720/17200; Accuracy = 63.64%; Mean Ent = 0.4639
+Task: s2m_train, Iter:3440/17200; Accuracy = 64.94%; Mean Ent = 0.2999
+Task: s2m_test, Iter:3440/17200; Accuracy = 61.58%; Mean Ent = 0.3066
+Task: s2m_train, Iter:5160/17200; Accuracy = 69.23%; Mean Ent = 0.2804
+Task: s2m_test, Iter:5160/17200; Accuracy = 64.52%; Mean Ent = 0.3024
+Task: s2m_train, Iter:6880/17200; Accuracy = 69.74%; Mean Ent = 0.2588
+Task: s2m_test, Iter:6880/17200; Accuracy = 65.69%; Mean Ent = 0.2772
+Task: s2m_train, Iter:8600/17200; Accuracy = 71.63%; Mean Ent = 0.2856
+Task: s2m_test, Iter:8600/17200; Accuracy = 66.86%; Mean Ent = 0.3114
+Task: s2m_train, Iter:10320/17200; Accuracy = 72.64%; Mean Ent = 0.2337
+Task: s2m_test, Iter:10320/17200; Accuracy = 66.86%; Mean Ent = 0.2625
+Task: s2m_train, Iter:12040/17200; Accuracy = 74.27%; Mean Ent = 0.2616
+Task: s2m_test, Iter:12040/17200; Accuracy = 69.79%; Mean Ent = 0.3002
+Task: s2m_train, Iter:13760/17200; Accuracy = 74.15%; Mean Ent = 0.2218
+Task: s2m_test, Iter:13760/17200; Accuracy = 69.21%; Mean Ent = 0.2412
+Task: s2m_train, Iter:15480/17200; Accuracy = 73.77%; Mean Ent = 0.2178
+Task: s2m_test, Iter:15480/17200; Accuracy = 67.16%; Mean Ent = 0.2366
+Task: s2m_train, Iter:17200/17200; Accuracy = 73.39%; Mean Ent = 0.2363
+Task: s2m_test, Iter:17200/17200; Accuracy = 67.16%; Mean Ent = 0.2560
+
+==========================================
+
+Val Acc = 67.16
+Max Acc = 69.79
+Fin Acc = 67.16
+

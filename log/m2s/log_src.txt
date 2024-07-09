@@ -1,0 +1,129 @@
+==========================================
+dset:m2s
+gpu_id:0
+max_epoch:400
+batch_size:32
+mozilla_batch_size:32
+worker:4
+lr:0.01
+seed:2020
+cls_par:0.3
+ent_par:1.0
+gent:True
+ent:True
+bottleneck:9
+layer:wn
+classifier:bn
+smooth:0.1
+ssl:0
+output:
+issave:True
+freeze_base:False
+augmentation:mixup
+class_num:3
+pretrained_checkpoint_path:code/Cnn14_mAP=0.431.pth
+output_dir:seed2020/m2s
+out_file:<_io.TextIOWrapper name='seed2020/m2s/log_src.txt' mode='w' encoding='UTF-8'>
+
+Train Source Task: m2s, Iter:52/5200; Accuracy = 43.63%/ 40.76%
+Train Source Task: m2s, Iter:104/5200; Accuracy = 58.13%/ 56.60%
+Train Source Task: m2s, Iter:156/5200; Accuracy = 49.94%/ 41.94%
+Train Source Task: m2s, Iter:208/5200; Accuracy = 64.69%/ 63.64%
+Train Source Task: m2s, Iter:260/5200; Accuracy = 68.60%/ 63.93%
+Train Source Task: m2s, Iter:312/5200; Accuracy = 73.14%/ 65.98%
+Train Source Task: m2s, Iter:364/5200; Accuracy = 75.54%/ 69.21%
+Train Source Task: m2s, Iter:416/5200; Accuracy = 73.01%/ 67.16%
+Train Source Task: m2s, Iter:468/5200; Accuracy = 79.82%/ 73.02%
+Train Source Task: m2s, Iter:520/5200; Accuracy = 79.07%/ 74.49%
+Train Source Task: m2s, Iter:572/5200; Accuracy = 78.81%/ 74.19%
+Train Source Task: m2s, Iter:624/5200; Accuracy = 63.81%/ 57.77%
+Train Source Task: m2s, Iter:676/5200; Accuracy = 71.00%/ 69.50%
+Train Source Task: m2s, Iter:728/5200; Accuracy = 80.20%/ 74.78%
+Train Source Task: m2s, Iter:780/5200; Accuracy = 79.32%/ 73.90%
+Train Source Task: m2s, Iter:832/5200; Accuracy = 70.74%/ 70.67%
+Train Source Task: m2s, Iter:884/5200; Accuracy = 82.85%/ 79.77%
+Train Source Task: m2s, Iter:936/5200; Accuracy = 72.51%/ 67.74%
+Train Source Task: m2s, Iter:988/5200; Accuracy = 80.71%/ 79.47%
+Train Source Task: m2s, Iter:1040/5200; Accuracy = 85.75%/ 81.52%
+Train Source Task: m2s, Iter:1092/5200; Accuracy = 83.48%/ 80.06%
+Train Source Task: m2s, Iter:1144/5200; Accuracy = 84.36%/ 79.47%
+Train Source Task: m2s, Iter:1196/5200; Accuracy = 83.86%/ 80.06%
+Train Source Task: m2s, Iter:1248/5200; Accuracy = 87.26%/ 81.23%
+Train Source Task: m2s, Iter:1300/5200; Accuracy = 86.51%/ 80.06%
+Train Source Task: m2s, Iter:1352/5200; Accuracy = 87.39%/ 82.99%
+Train Source Task: m2s, Iter:1404/5200; Accuracy = 88.40%/ 82.40%
+Train Source Task: m2s, Iter:1456/5200; Accuracy = 87.26%/ 80.94%
+Train Source Task: m2s, Iter:1508/5200; Accuracy = 86.00%/ 81.23%
+Train Source Task: m2s, Iter:1560/5200; Accuracy = 85.25%/ 81.23%
+Train Source Task: m2s, Iter:1612/5200; Accuracy = 88.15%/ 82.70%
+Train Source Task: m2s, Iter:1664/5200; Accuracy = 86.63%/ 82.70%
+Train Source Task: m2s, Iter:1716/5200; Accuracy = 88.27%/ 82.70%
+Train Source Task: m2s, Iter:1768/5200; Accuracy = 89.41%/ 85.04%
+Train Source Task: m2s, Iter:1820/5200; Accuracy = 88.90%/ 82.11%
+Train Source Task: m2s, Iter:1872/5200; Accuracy = 88.02%/ 81.82%
+Train Source Task: m2s, Iter:1924/5200; Accuracy = 89.16%/ 82.70%
+Train Source Task: m2s, Iter:1976/5200; Accuracy = 88.65%/ 81.52%
+Train Source Task: m2s, Iter:2028/5200; Accuracy = 88.65%/ 82.70%
+Train Source Task: m2s, Iter:2080/5200; Accuracy = 90.16%/ 86.51%
+Train Source Task: m2s, Iter:2132/5200; Accuracy = 89.91%/ 84.46%
+Train Source Task: m2s, Iter:2184/5200; Accuracy = 87.64%/ 83.28%
+Train Source Task: m2s, Iter:2236/5200; Accuracy = 88.78%/ 84.16%
+Train Source Task: m2s, Iter:2288/5200; Accuracy = 90.16%/ 85.92%
+Train Source Task: m2s, Iter:2340/5200; Accuracy = 90.29%/ 85.63%
+Train Source Task: m2s, Iter:2392/5200; Accuracy = 89.91%/ 85.92%
+Train Source Task: m2s, Iter:2444/5200; Accuracy = 89.66%/ 84.75%
+Train Source Task: m2s, Iter:2496/5200; Accuracy = 91.05%/ 86.51%
+Train Source Task: m2s, Iter:2548/5200; Accuracy = 90.92%/ 86.51%
+Train Source Task: m2s, Iter:2600/5200; Accuracy = 91.42%/ 87.39%
+Train Source Task: m2s, Iter:2652/5200; Accuracy = 91.80%/ 88.27%
+Train Source Task: m2s, Iter:2704/5200; Accuracy = 89.91%/ 85.63%
+Train Source Task: m2s, Iter:2756/5200; Accuracy = 90.54%/ 85.04%
+Train Source Task: m2s, Iter:2808/5200; Accuracy = 89.16%/ 84.16%
+Train Source Task: m2s, Iter:2860/5200; Accuracy = 91.30%/ 87.39%
+Train Source Task: m2s, Iter:2912/5200; Accuracy = 91.80%/ 89.44%
+Train Source Task: m2s, Iter:2964/5200; Accuracy = 89.79%/ 84.16%
+Train Source Task: m2s, Iter:3016/5200; Accuracy = 90.79%/ 85.92%
+Train Source Task: m2s, Iter:3068/5200; Accuracy = 89.53%/ 84.16%
+Train Source Task: m2s, Iter:3120/5200; Accuracy = 91.93%/ 88.86%
+Train Source Task: m2s, Iter:3172/5200; Accuracy = 94.20%/ 87.39%
+Train Source Task: m2s, Iter:3224/5200; Accuracy = 91.05%/ 85.34%
+Train Source Task: m2s, Iter:3276/5200; Accuracy = 92.43%/ 87.68%
+Train Source Task: m2s, Iter:3328/5200; Accuracy = 92.43%/ 89.44%
+Train Source Task: m2s, Iter:3380/5200; Accuracy = 93.57%/ 89.15%
+Train Source Task: m2s, Iter:3432/5200; Accuracy = 91.42%/ 86.80%
+Train Source Task: m2s, Iter:3484/5200; Accuracy = 92.69%/ 89.15%
+Train Source Task: m2s, Iter:3536/5200; Accuracy = 93.19%/ 88.27%
+Train Source Task: m2s, Iter:3588/5200; Accuracy = 94.58%/ 89.44%
+Train Source Task: m2s, Iter:3640/5200; Accuracy = 92.18%/ 87.10%
+Train Source Task: m2s, Iter:3692/5200; Accuracy = 94.07%/ 90.62%
+Train Source Task: m2s, Iter:3744/5200; Accuracy = 93.57%/ 89.15%
+Train Source Task: m2s, Iter:3796/5200; Accuracy = 93.32%/ 89.15%
+Train Source Task: m2s, Iter:3848/5200; Accuracy = 93.95%/ 89.44%
+Train Source Task: m2s, Iter:3900/5200; Accuracy = 92.31%/ 86.51%
+Train Source Task: m2s, Iter:3952/5200; Accuracy = 93.69%/ 89.15%
+Train Source Task: m2s, Iter:4004/5200; Accuracy = 94.45%/ 89.74%
+Train Source Task: m2s, Iter:4056/5200; Accuracy = 96.09%/ 90.32%
+Train Source Task: m2s, Iter:4108/5200; Accuracy = 95.59%/ 90.62%
+Train Source Task: m2s, Iter:4160/5200; Accuracy = 95.08%/ 90.32%
+Train Source Task: m2s, Iter:4212/5200; Accuracy = 95.08%/ 90.62%
+Train Source Task: m2s, Iter:4264/5200; Accuracy = 94.96%/ 91.20%
+Train Source Task: m2s, Iter:4316/5200; Accuracy = 95.84%/ 89.74%
+Train Source Task: m2s, Iter:4368/5200; Accuracy = 95.08%/ 91.20%
+Train Source Task: m2s, Iter:4420/5200; Accuracy = 94.33%/ 90.32%
+Train Source Task: m2s, Iter:4472/5200; Accuracy = 95.33%/ 90.62%
+Train Source Task: m2s, Iter:4524/5200; Accuracy = 94.70%/ 90.32%
+Train Source Task: m2s, Iter:4576/5200; Accuracy = 94.20%/ 90.32%
+Train Source Task: m2s, Iter:4628/5200; Accuracy = 94.58%/ 90.03%
+Train Source Task: m2s, Iter:4680/5200; Accuracy = 94.33%/ 90.91%
+Train Source Task: m2s, Iter:4732/5200; Accuracy = 96.09%/ 90.91%
+Train Source Task: m2s, Iter:4784/5200; Accuracy = 95.46%/ 90.32%
+Train Source Task: m2s, Iter:4836/5200; Accuracy = 95.46%/ 90.62%
+Train Source Task: m2s, Iter:4888/5200; Accuracy = 96.47%/ 90.91%
+Train Source Task: m2s, Iter:4940/5200; Accuracy = 95.46%/ 90.62%
+Train Source Task: m2s, Iter:4992/5200; Accuracy = 95.21%/ 91.50%
+Train Source Task: m2s, Iter:5044/5200; Accuracy = 95.46%/ 91.20%
+Train Source Task: m2s, Iter:5096/5200; Accuracy = 96.09%/ 90.03%
+Train Source Task: m2s, Iter:5148/5200; Accuracy = 96.34%/ 91.50%
+Train Source Task: m2s, Iter:5200/5200; Accuracy = 96.34%/ 90.32%
+Test Target Task: m2s, Accuracy = 43.18%
+Test Target Task: m2s, Accuracy = 68.47%

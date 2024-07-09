@@ -5,15 +5,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.transforms as transforms
 import network
 from torch.utils.data import DataLoader
 import random
 from scipy.spatial.distance import cdist
-import rotation
 from data_load import audio_dataset_read
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from utils import do_mixup
 
 
 def op_copy(optimizer):
@@ -47,9 +46,6 @@ class CrossEntropyLabelSmooth(nn.Module):
 
     def forward(self, inputs, targets):
         log_probs = self.logsoftmax(inputs)
-        targets = torch.zeros(log_probs.size()).scatter_(1, targets.unsqueeze(1).cpu(), 1)
-        if self.use_gpu: targets = targets.cuda()
-        targets = (1 - self.epsilon) * targets + self.epsilon / self.num_classes
         if self.size_average:
             loss = (- targets * log_probs).mean(0).sum()
         else:
@@ -57,36 +53,56 @@ class CrossEntropyLabelSmooth(nn.Module):
         return loss
 
 
+class Mixup(object):
+    def __init__(self, mixup_alpha, random_seed=1234):
+        """Mixup coefficient generator.
+        """
+        self.mixup_alpha = mixup_alpha
+        self.random_state = np.random.RandomState(random_seed)
+
+    def get_lambda(self, batch_size):
+        """Get mixup random coefficients.
+        Args:
+          batch_size: int
+        Returns:
+          mixup_lambdas: (batch_size,)
+        """
+        mixup_lambdas = []
+
+        for n in range(0, batch_size, 2):
+            lam = self.random_state.beta(self.mixup_alpha, self.mixup_alpha, 1)[0]
+            mixup_lambdas.append(lam)
+            mixup_lambdas.append(1. - lam)
+
+        return np.array(mixup_lambdas)
+
+
 def digit_load(args): 
     source_bs = args.batch_size
     target_bs = args.mozilla_batch_size
 
-    # transform = transforms.Compose([
-    #     transforms.Resize(32),
-    #     transforms.ToTensor(),
-    #     transforms.Normalize((0.5,), (0.5,))
-    # ])
     s_domain = args.dset[0]
     t_domain = args.dset[2]
 
-    train_source, test_source = audio_dataset_read(s_domain)
-    train_target, _ = audio_dataset_read(t_domain, index=True)
-    _, test_target = audio_dataset_read(t_domain)
+    train_source, test_source = audio_dataset_read(args, s_domain)
+    train_target, _ = audio_dataset_read(args, t_domain, index=True)
+    _, test_target = audio_dataset_read(args, t_domain)
 
     dset_loaders = {}
-    dset_loaders["source_tr"] = DataLoader(train_source, batch_size=source_bs, shuffle=True, 
-        num_workers=args.worker, drop_last=False)
+    dset_loaders["source_tr"] = DataLoader(train_source, 
+        batch_size = source_bs * 2 if 'mixup' in args.augmentation else source_bs,
+        shuffle=True, num_workers=args.worker, drop_last=False)
     dset_loaders["source_te"] = DataLoader(test_source, batch_size=source_bs*2, shuffle=True, 
         num_workers=args.worker, drop_last=False)
     dset_loaders["target"] = DataLoader(train_target, batch_size=target_bs, shuffle=True, 
         num_workers=args.worker, drop_last=False)
     dset_loaders["target_te"] = DataLoader(train_target, batch_size=target_bs, shuffle=False, 
         num_workers=args.worker, drop_last=False)
-    dset_loaders["test"] = DataLoader(test_target, batch_size=target_bs*2, shuffle=False, 
+    dset_loaders["test"] = DataLoader(test_target, batch_size=target_bs, shuffle=False, 
         num_workers=args.worker, drop_last=False)
     return dset_loaders
 
-def cal_acc(loader, netF, netC):
+def cal_acc(loader, model):
     start_test = True
     with torch.no_grad():
         iter_test = iter(loader)
@@ -95,7 +111,7 @@ def cal_acc(loader, netF, netC):
             inputs = data[0]
             labels = data[1]
             inputs = inputs.cuda()
-            outputs = netC(netF(inputs))
+            outputs, embedding = model(inputs)
             if start_test:
                 all_output = outputs.float().cpu()
                 all_label = labels.float()
@@ -104,143 +120,42 @@ def cal_acc(loader, netF, netC):
                 all_output = torch.cat((all_output, outputs.float().cpu()), 0)
                 all_label = torch.cat((all_label, labels.float()), 0)
     _, predict = torch.max(all_output, 1)
+    _, all_label = torch.max(all_label, 1)
     accuracy = torch.sum(torch.squeeze(predict).float() == all_label).item() / float(all_label.size()[0])
     mean_ent = torch.mean(Entropy(nn.Softmax(dim=1)(all_output))).cpu().data.item()
     return accuracy*100, mean_ent
 
-def cal_acc_rot(loader, netF, netR):
-    start_test = True
-    with torch.no_grad():
-        iter_test = iter(loader)
-        for i in range(len(loader)):
-            data = next(iter_test)
-            inputs = data[0].cuda()
-            r_labels = np.random.randint(0, 4, len(inputs))
-            r_inputs = rotation.rotate_batch_with_labels(inputs, r_labels)
-            r_labels = torch.from_numpy(r_labels)
-            r_inputs = r_inputs.cuda()
-        
-            f_outputs = netF(inputs)
-            f_r_outputs = netF(r_inputs)
-            r_outputs = netR(torch.cat((f_outputs, f_r_outputs), 1))
-
-            if start_test:
-                all_output = r_outputs.float().cpu()
-                all_label = r_labels.float()
-                start_test = False
-            else:
-                all_output = torch.cat((all_output, r_outputs.float().cpu()), 0)
-                all_label = torch.cat((all_label, r_labels.float()), 0)
-    _, predict = torch.max(all_output, 1)
-    accuracy = torch.sum(torch.squeeze(predict).float() == all_label).item() / float(all_label.size()[0])
-    
-    return accuracy*100
-
-def train_target_rot(args):
-    dset_loaders = digit_load(args)
-    ## set base network
-    netF = network.AudioClassifier().cuda()
-    netR = network.feat_classifier(type='linear', class_num=3, bottleneck_dim=2*args.bottleneck).cuda()
-
-    args.modelpath = args.output_dir + '/source_F.pt'   
-    netF.load_state_dict(torch.load(args.modelpath))
-
-    netF.eval()
-    for k, v in netF.named_parameters():
-        v.requires_grad = False
-
-    param_group = []
-    for k, v in netR.named_parameters():
-        param_group += [{'params': v, 'lr': args.lr}]
-    netR.train()
-    optimizer = optim.SGD(param_group)
-    optimizer = op_copy(optimizer)
-
-    max_iter = args.max_epoch * len(dset_loaders["target"])
-    interval_iter = max_iter // 10
-    iter_num = 0
-
-    rot_acc = 0
-    while iter_num < max_iter:
-        optimizer.zero_grad()
-        try:
-            inputs_test, _, tar_idx = next(iter_test)
-        except:
-            iter_test = iter(dset_loaders["target"])
-            inputs_test, _, tar_idx = next(iter_test)
-
-        if inputs_test.size(0) == 1:
-            continue
-
-        inputs_test = inputs_test.cuda()
-
-        iter_num += 1
-        lr_scheduler(optimizer, iter_num=iter_num, max_iter=max_iter)
-
-        r_labels_target = np.random.randint(0, 4, len(inputs_test))
-        print(len(inputs_test), len(r_labels_target))
-        r_inputs_target = rotation.rotate_batch_with_labels(inputs_test, r_labels_target)
-        r_labels_target = torch.from_numpy(r_labels_target).cuda()
-        r_inputs_target = r_inputs_target.cuda()
-       
-        f_outputs = netB(netF(inputs_test))
-        f_r_outputs = netB(netF(r_inputs_target))
-        r_outputs_target = netR(torch.cat((f_outputs, f_r_outputs), 1))
-
-        rotation_loss = nn.CrossEntropyLoss()(r_outputs_target, r_labels_target)
-        rotation_loss.backward() 
-
-        optimizer.step()
-
-        if iter_num % interval_iter == 0 or iter_num == max_iter:
-            netR.eval()
-            acc_rot = cal_acc_rot(dset_loaders['target'], netF, netR)
-            log_str = 'Rotation Task: {}, Iter:{}/{}; Accuracy = {:.2f}%'.format(args.dset, iter_num, max_iter, acc_rot)
-            args.out_file.write(log_str + '\n')
-            args.out_file.flush()
-            print(log_str+'\n')
-            netR.train()
-
-            if rot_acc < acc_rot:
-                rot_acc = acc_rot
-                best_netR = netR.state_dict()
-
-    log_str = 'Best Accuracy = {:.2f}%'.format(rot_acc)
-    args.out_file.write(log_str + '\n')
-    args.out_file.flush()
-    print(log_str+'\n')
-
-    return best_netR, rot_acc
 
 def train_source(args):
-    acc_list_tr = []  # 用于记录训练集准确率
-    acc_list_te = []  # 用于记录测试集准确率
     dset_loaders = digit_load(args)
+    
     ## set base network
-    netF = network.AudioClassifier().cuda()
-    # netB = network.feat_bottleneck(type=args.classifier, feature_dim=netF.in_features, bottleneck_dim=args.bottleneck).cuda()
-    netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
+    model = network.Transfer_Cnn14(sample_rate = 32000, window_size = 1024, hop_size= 320, mel_bins = 64, fmin = 50, fmax = 14000, 
+        classes_num = 3, freeze_base = args.freeze_base, freeze_classifier = False).cuda()
+    pretrain = True if args.pretrained_checkpoint_path else False
+    if pretrain:
+        model.load_from_pretrain(args.pretrained_checkpoint_path)
 
     param_group = []
     learning_rate = args.lr
-    for k, v in netF.named_parameters():
+    for k, v in model.named_parameters():
         param_group += [{'params': v, 'lr': learning_rate}]
-    # for k, v in netB.named_parameters():
-    #     param_group += [{'params': v, 'lr': learning_rate}]
-    for k, v in netC.named_parameters():
-        param_group += [{'params': v, 'lr': learning_rate}]   
 
     optimizer = optim.SGD(param_group)
     optimizer = op_copy(optimizer)
 
+    if 'mixup' in args.augmentation:
+        mixup_augmenter = Mixup(mixup_alpha=1.)
+
     acc_init = 0
     max_iter = args.max_epoch * len(dset_loaders["source_tr"])
-    interval_iter = max_iter // 10
+    interval_iter = max_iter // 100
     iter_num = 0
 
-    netF.train()
-    # netB.train()
-    netC.train()
+    acc_list_tr = []  # 用于记录训练集准确率
+    acc_list_te = []  # 用于记录测试集准确率
+
+    model.train()
 
     with tqdm(total=max_iter) as pbar:
         while iter_num < max_iter:
@@ -250,25 +165,37 @@ def train_source(args):
                 iter_source = iter(dset_loaders["source_tr"])
                 inputs_source, labels_source = next(iter_source) #yxy
 
-            if inputs_source.size(0) == 1:
+            if inputs_source.size(0) % 2 == 1:
                 continue
 
             iter_num += 1
             lr_scheduler(optimizer, iter_num=iter_num, max_iter=max_iter)
 
             inputs_source, labels_source = inputs_source.cuda(), labels_source.cuda()
-            # inputs_source, labels_source = inputs_source, labels_source
-            outputs_source = netC(netF(inputs_source))
-            classifier_loss = CrossEntropyLabelSmooth(num_classes=args.class_num, epsilon=args.smooth)(outputs_source, labels_source)            
+            
+            # 得到用于mixup的比例
+            if 'mixup' in args.augmentation:
+                mixup_lambda = torch.tensor(mixup_augmenter.get_lambda(len(inputs_source))).cuda()
+            else:
+                mixup_lambda = None
+        
+            # 得到最终预测结果和标签 (aug or not)
+            if 'mixup' in args.augmentation:
+                clipwise_output, embedding = model(inputs_source, mixup_lambda.float())
+                labels_aug = do_mixup(labels_source, mixup_lambda)
+            else:
+                clipwise_output, embedding = model(inputs_source, None)
+                labels_aug = labels_source
+
+            classifier_loss = CrossEntropyLabelSmooth(num_classes=args.class_num, epsilon=args.smooth)(clipwise_output, labels_aug)            
             optimizer.zero_grad()
             classifier_loss.backward()
             optimizer.step()
 
             if iter_num % interval_iter == 0 or iter_num == max_iter:
-                netF.eval()
-                netC.eval()
-                acc_s_tr, _ = cal_acc(dset_loaders['source_tr'], netF, netC)
-                acc_s_te, _ = cal_acc(dset_loaders['source_te'], netF, netC)
+                model.eval()
+                acc_s_tr, _ = cal_acc(dset_loaders['source_tr'], model)
+                acc_s_te, _ = cal_acc(dset_loaders['source_te'], model)
                 acc_list_tr.append(acc_s_tr)
                 acc_list_te.append(acc_s_te)
                 log_str = 'Train Source Task: {}, Iter:{}/{}; Accuracy = {:.2f}%/ {:.2f}%'.format(args.dset, iter_num, max_iter, acc_s_tr, acc_s_te)
@@ -278,48 +205,43 @@ def train_source(args):
 
                 if acc_s_te >= acc_init:
                     acc_init = acc_s_te
-                    best_netF = netF.state_dict()
-                    best_netC = netC.state_dict()
+                    best_model = model.state_dict()
 
-                netF.train()
-                netC.train()
+                model.train()
 
             pbar.update(1)
     
      # 绘制准确率随着迭代次数的变化图
     plt.figure()
-    plt.plot(range(1, len(acc_list_tr) + 1), acc_list_tr, label='Train Accuracy')
-    plt.plot(range(1, len(acc_list_te) + 1), acc_list_te, label='Test Accuracy')
+    plt.plot(range(1, len(acc_list_tr)*400 + 1, 400), acc_list_tr, label='Train Accuracy')
+    plt.plot(range(1, len(acc_list_te)*400 + 1, 400), acc_list_te, label='Test Accuracy')
     plt.xlabel('Iterations')
     plt.ylabel('Accuracy')
     plt.title('Accuracy vs Iterations')
     plt.legend()
     plt.grid(True)
-    plt.savefig('train_source_m2s_32_100_accuracy.png')  # 保存图像
+    plt.savefig('train_source_s2m_32_100_panns_accuracy_400_0.01_newdspre.png')  # 保存图像
     plt.show()
 
-    torch.save(best_netF, osp.join(args.output_dir, "source_F.pt"))
-    torch.save(best_netC, osp.join(args.output_dir, "source_C.pt"))
+    torch.save(best_model, osp.join(args.output_dir, "source_panns.pt"))
 
-    return netF, netC
+    return model
 
 def test_target(args):
     dset_loaders = digit_load(args)
     ## set base network
-    netF = network.AudioClassifier().cuda()
-    netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
-    
-    args.modelpath = args.output_dir + '/source_F.pt'   
-    netF.load_state_dict(torch.load(args.modelpath))
-    args.modelpath = args.output_dir + '/source_C.pt'   
-    netC.load_state_dict(torch.load(args.modelpath))
-    netF.eval()
-    netC.eval()
+    # netF = network.AudioClassifier().cuda()
+    # netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
 
-    acc, _ = cal_acc(dset_loaders['test'], netF, netC)
+    netG = network.Transfer_Cnn14(sample_rate = 32000, window_size = 1024, hop_size= 320, mel_bins = 64, fmin = 50, fmax = 14000, 
+        classes_num = 3, freeze_base = False, freeze_classifier = False).cuda()
+    model = nn.Sequential(netG)
+    args.modelpath = args.output_dir + '/ps_0.0_par_0.3final.pt'   
+    model.load_state_dict(torch.load(args.modelpath))
+    model.eval()
+
+    acc, _ = cal_acc(dset_loaders['test'], model)
     log_str = 'Test Target Task: {}, Accuracy = {:.2f}%'.format(args.dset, acc)
-    # args.out_file.write(log_str + '\n')
-    # args.out_file.flush()
     print(log_str+'\n')
 
 def print_args(args):
@@ -331,30 +253,16 @@ def print_args(args):
 def train_target(args):
     dset_loaders = digit_load(args)
     ## set base network
-    netF = network.AudioClassifier().cuda()
-    netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
-    if not args.ssl == 0:
-        netR = network.feat_classifier(type='linear', class_num=4, bottleneck_dim=2*args.bottleneck).cuda()
-        netR_dict, acc_rot = train_target_rot(args)
-        netR.load_state_dict(netR_dict)
-
-    args.modelpath = args.output_dir + '/source_F.pt'   
-    netF.load_state_dict(torch.load(args.modelpath))
-    args.modelpath = args.output_dir + '/source_C.pt'    
-    netC.load_state_dict(torch.load(args.modelpath))
-    netC.eval()
-    for k, v in netC.named_parameters():
-        v.requires_grad = False
+    model = network.Transfer_Cnn14(sample_rate = 32000, window_size = 1024, hop_size= 320, mel_bins = 64, fmin = 50, fmax = 14000, 
+        classes_num = 3, freeze_base = args.freeze_base, freeze_classifier = True).cuda()
+    
+    args.modelpath = args.output_dir + '/source_panns.pt'   
+    model.load_state_dict(torch.load(args.modelpath))
 
     param_group = []
-    for k, v in netF.named_parameters():
+    for k, v in model.base.named_parameters():
         param_group += [{'params': v, 'lr': args.lr}]
     
-    if not args.ssl == 0:
-        for k, v in netR.named_parameters():
-            param_group += [{'params': v, 'lr': args.lr}]
-        netR.train()
-
     optimizer = optim.SGD(param_group)
     optimizer = op_copy(optimizer)
 
@@ -375,18 +283,16 @@ def train_target(args):
                 continue
 
             if iter_num % interval_iter == 0 and args.cls_par > 0:
-                netF.eval()
-                mem_label = obtain_label(dset_loaders['target_te'], netF, netC, args)
+                model.eval()
+                mem_label = obtain_label(dset_loaders['target_te'], model, args)
                 mem_label = torch.from_numpy(mem_label).cuda()
-                print(len(mem_label))
-                netF.train()
+                model.train()
 
             iter_num += 1
             lr_scheduler(optimizer, iter_num=iter_num, max_iter=max_iter)
 
             inputs_test = inputs_test.cuda()
-            features_test = netF(inputs_test)
-            outputs_test = netC(features_test)
+            outputs_test, features_test = model(inputs_test)
 
             if args.cls_par > 0:
                 pred = mem_label[tar_idx]
@@ -407,42 +313,24 @@ def train_target(args):
             optimizer.zero_grad()
             classifier_loss.backward()
 
-            if not args.ssl == 0:
-                r_labels_target = np.random.randint(0, 4, len(inputs_test))
-                r_inputs_target = rotation.rotate_batch_with_labels(inputs_test, r_labels_target)
-                r_labels_target = torch.from_numpy(r_labels_target).cuda()
-                r_inputs_target = r_inputs_target.cuda()
-
-                f_outputs = netF(inputs_test)
-                f_outputs = f_outputs.detach()
-                f_r_outputs = netF(r_inputs_target)
-                r_outputs_target = netR(torch.cat((f_outputs, f_r_outputs), 1))
-
-                rotation_loss = args.ssl * nn.CrossEntropyLoss()(r_outputs_target, r_labels_target)   
-                rotation_loss.backward() 
-
             optimizer.step()
 
             if iter_num % interval_iter == 0 or iter_num == max_iter:
-                netF.eval()
-                # netB.eval()
-                acc, _ = cal_acc(dset_loaders['test'], netF, netC)
+                model.eval()
+                acc, _ = cal_acc(dset_loaders['test'], model)
                 log_str = 'Train Target Task: {}, Iter:{}/{}; Accuracy = {:.2f}%'.format(args.dset, iter_num, max_iter, acc)
                 args.out_file.write(log_str + '\n')
                 args.out_file.flush()
                 print(log_str+'\n')
-                netF.train()
-                # netB.train()
+                model.train()
             pbar.update(1)
 
     if args.issave:
-        torch.save(netF.state_dict(), osp.join(args.output_dir, "target_F_" + args.savename + ".pt"))
-        # torch.save(netB.state_dict(), osp.join(args.output_dir, "target_B_" + args.savename + ".pt"))
-        torch.save(netC.state_dict(), osp.join(args.output_dir, "target_C_" + args.savename + ".pt"))
+        torch.save(model.state_dict(), osp.join(args.output_dir, "target_panns_" + args.savename + ".pt"))
+        
+    return model
 
-    return netF, netC
-
-def obtain_label(loader, netF, netC, args, c=None):
+def obtain_label(loader, model, args, c=None):
     start_test = True
     with torch.no_grad():
         iter_test = iter(loader)
@@ -451,8 +339,7 @@ def obtain_label(loader, netF, netC, args, c=None):
             inputs = data[0]
             labels = data[1]
             inputs = inputs.cuda()
-            feas = netF(inputs)
-            outputs = netC(feas)
+            outputs, feas = model(inputs)
             if start_test:
                 all_fea = feas.float().cpu()
                 all_output = outputs.float().cpu()
@@ -464,6 +351,7 @@ def obtain_label(loader, netF, netC, args, c=None):
                 all_label = torch.cat((all_label, labels.float()), 0)
     all_output = nn.Softmax(dim=1)(all_output)
     _, predict = torch.max(all_output, 1)
+    _, all_label = torch.max(all_label, 1)
     accuracy = torch.sum(torch.squeeze(predict).float() == all_label).item() / float(all_label.size()[0])
     
     all_fea = torch.cat((all_fea, torch.ones(all_fea.size(0), 1)), 1)
@@ -498,10 +386,10 @@ if __name__ == "__main__":
     parser.add_argument('--dset', type=str, default='m2s')
     
     parser.add_argument('--gpu_id', type=str, nargs='?', default='0', help="device id to run")
-    parser.add_argument('--max_epoch', type=int, default=100, help="maximum epoch")
+    parser.add_argument('--max_epoch', type=int, default=50, help="maximum epoch") #50
     parser.add_argument('--batch_size', type=int, default=32, help="batch_size")
-    parser.add_argument('--mozilla_batch_size', type=int, default=128, help="mozilla_batch_size")
-    parser.add_argument('--worker', type=int, default=4, help="number of workers")
+    parser.add_argument('--mozilla_batch_size', type=int, default=32, help="mozilla_batch_size")
+    parser.add_argument('--worker', type=int, default=16, help="number of workers")
     parser.add_argument('--lr', type=float, default=0.01, help="learning rate")
     parser.add_argument('--seed', type=int, default=2020, help="random seed")
 
@@ -519,8 +407,12 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, default='')
     parser.add_argument('--issave', type=bool, default=True)
 
+    parser.add_argument('--freeze_base', action='store_true', default=False)
+    parser.add_argument('--augmentation', type=str, choices=['none', 'mixup'], default='mixup')
+
     args = parser.parse_args()
     args.class_num = 3
+    args.pretrained_checkpoint_path = "code/Cnn14_mAP=0.431.pth"
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
     SEED = args.seed
@@ -528,7 +420,6 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(SEED)
     np.random.seed(SEED)
     random.seed(SEED)
-    # torch.backends.cudnn.deterministic = True
 
     args.output_dir = osp.join(args.output, 'seed' + str(args.seed), args.dset)
     if not osp.exists(args.output_dir):
@@ -536,21 +427,11 @@ if __name__ == "__main__":
     if not osp.exists(args.output_dir):
         os.mkdir(args.output_dir)
 
-    if not osp.exists(osp.join(args.output_dir + '/source_F.pt')):
+    if not osp.exists(osp.join(args.output_dir + '/source_panns.pt')):
         args.out_file = open(osp.join(args.output_dir, 'log_src.txt'), 'w')
         args.out_file.write(print_args(args)+'\n')
         args.out_file.flush()
         train_source(args)
         test_target(args)
 
-    # test_target(args)
-    
-
-    args.savename = 'par_' + str(args.cls_par)
-    if args.ssl > 0:
-        args.savename += ('_ssl_') + str(args.ssl)
-    args.out_file = open(osp.join(args.output_dir, 'log_tar_' + args.savename + '.txt'), 'w')
-    args.out_file.write(print_args(args)+'\n')
-    args.out_file.flush()
-    train_target(args)
-    args.out_file.close()
+    test_target(args)

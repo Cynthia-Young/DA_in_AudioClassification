@@ -3,48 +3,30 @@ import os
 import os.path as osp
 import numpy as np
 import torch
-import torchvision
 import torch.nn as nn
 import torch.optim as optim
-import loss
 from torch.utils.data import DataLoader
-from torch.autograd import Variable
 import random
-import pdb
-import math
-import sys, copy
-from tqdm import tqdm
+import copy
 import utils
 import scipy.io as sio
-import pickle
 import copy
-import torch.nn.functional as F
-from scipy.spatial.distance import cdist
 import network
-# from data_list import ImageList, ImageList_twice
 from sklearn.metrics import confusion_matrix
-# from data_load import mnist, svhn, usps
-from torchvision import transforms
 from data_load import audio_dataset_read
 
-
-
-import cv2
-def _gaussian_blur(x, sigma=0.1):
-    ksize = int(sigma + 0.5) * 8 + 1
-    dst = cv2.GaussianBlur(x.numpy(), (ksize, ksize), sigma)
-    return torch.from_numpy(dst)
+def Entropy(input_):
+    bs = input_.size(0)
+    epsilon = 1e-5
+    entropy = -input_ * torch.log(input_ + epsilon)
+    entropy = torch.sum(entropy, dim=1)
+    return entropy 
 
 def split_target(args):
     train_bs = args.batch_size
-    # transform = transforms.Compose([
-    #     transforms.Resize(32),
-    #     transforms.ToTensor(),
-    #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    # ])
     t_domain = args.dset[2]
-    train_target, test_target = audio_dataset_read(t_domain)
-    train_target2, _ = audio_dataset_read(t_domain, index= False, twice = True)
+    train_target, test_target = audio_dataset_read(args, t_domain)
+    train_target2, _ = audio_dataset_read(args, t_domain, index= False, twice = True)
 
     dset_loaders = {}
     dset_loaders["target_te"] = DataLoader(test_target, batch_size=train_bs, shuffle=False, 
@@ -54,40 +36,28 @@ def split_target(args):
     dset_loaders["target2"] = DataLoader(train_target2, batch_size=train_bs, shuffle=False, 
         num_workers=args.worker, drop_last=False)
 
-    netF = network.AudioClassifier().cuda()
-    # netB = network.feat_bottleneck(type=args.classifier, feature_dim=netF.in_features, bottleneck_dim=args.bottleneck).cuda()
-    netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
-
+    model = network.Transfer_Cnn14(sample_rate = 32000, window_size = 1024, hop_size= 320, mel_bins = 64, fmin = 50, fmax = 14000, 
+        classes_num = 3, freeze_base = False, freeze_classifier = True).cuda()
+    
     if args.model == 'source':
-        modelpath = args.output_dir + "/source_F.pt" 
-        netF.load_state_dict(torch.load(modelpath))
-        # modelpath = args.output_dir + "/source_B.pt"   
-        # netB.load_state_dict(torch.load(modelpath))
-        modelpath = args.output_dir + "/source_C.pt"    
-        netC.load_state_dict(torch.load(modelpath))
+        modelpath = args.output_dir + "/source_panns.pt" 
+        model.load_state_dict(torch.load(modelpath))
         pass
     else:
-        modelpath = args.output_dir + "/target_F_" + args.savename + ".pt" 
-        netF.load_state_dict(torch.load(modelpath))
-        # modelpath = args.output_dir + "/target_B_" + args.savename + ".pt"   
-        # netB.load_state_dict(torch.load(modelpath))
-        modelpath = args.output_dir + "/target_C_" + args.savename + ".pt"    
-        netC.load_state_dict(torch.load(modelpath))
+        modelpath = args.output_dir + "/target_panns_" + args.savename + ".pt" 
+        model.load_state_dict(torch.load(modelpath))
 
-    netF.eval()
-    # netB.eval()
-    netC.eval()
+    model.eval()
 
     start_test = True
     with torch.no_grad():
         iter_test = iter(dset_loaders['target_te'])
         for i in range(len(dset_loaders['target_te'])):
             data = next(iter_test)
-            # pdb.set_trace()
             inputs = data[0]
             labels = data[1]
             inputs = inputs.cuda()
-            outputs = netC(netF(inputs))
+            outputs, features = model(inputs)
             if start_test:
                 all_output = outputs.float().cpu()
                 all_label = labels.float()
@@ -96,8 +66,9 @@ def split_target(args):
                 all_output = torch.cat((all_output, outputs.float().cpu()), 0)
                 all_label = torch.cat((all_label, labels.float()), 0)
     top_pred, predict = torch.max(all_output, 1)
+    _, all_label = torch.max(all_label, 1)
     acc = torch.sum(torch.squeeze(predict).float() == all_label).item() / float(all_label.size()[0]) * 100
-    mean_ent = loss.Entropy(nn.Softmax(dim=1)(all_output))
+    mean_ent = Entropy(nn.Softmax(dim=1)(all_output))
     log_str = 'Task: {}, Iter:{}/{}; Accuracy = {:.2f}%; Mean Ent = {:.4f}'.format(args.dset + '_test', 0, 0, acc, mean_ent.mean())
     args.out_file.write(log_str + '\n')
     args.out_file.flush()
@@ -113,7 +84,7 @@ def split_target(args):
             inputs = data[0]
             labels = data[1]
             inputs = inputs.cuda()
-            outputs = netC(netF(inputs))
+            outputs, features = model(inputs)
             if start_test:
                 all_output = outputs.float().cpu()
                 all_label = labels.float()
@@ -122,8 +93,9 @@ def split_target(args):
                 all_output = torch.cat((all_output, outputs.float().cpu()), 0)
                 all_label = torch.cat((all_label, labels.float()), 0)
     top_pred, predict = torch.max(all_output, 1)
+    _, all_label = torch.max(all_label, 1)
     acc = torch.sum(torch.squeeze(predict).float() == all_label).item() / float(all_label.size()[0]) * 100
-    mean_ent = loss.Entropy(nn.Softmax(dim=1)(all_output))
+    mean_ent = Entropy(nn.Softmax(dim=1)(all_output))
 
     log_str = 'Task: {}, Iter:{}/{}; Accuracy = {:.2f}%; Mean Ent = {:.4f}'.format(args.dset + '_train', 0, 0, acc, mean_ent.mean())
     args.out_file.write(log_str + '\n')
@@ -164,7 +136,6 @@ def split_target(args):
         _, idx_ = torch.sort(c_value)
         c_num = len(idx_)
         c_num_s = int(c_num * PS)
-        # print(c, c_num, c_num_s) 
 
         for ei in range(0, c_num_s):
             ee = c_idx[idx_[ei]]
@@ -173,8 +144,6 @@ def split_target(args):
     train_target.targets = predict
     new_src = copy.deepcopy(train_target)
     new_tar = copy.deepcopy(train_target2)
-
-    # pdb.set_trace()
 
     if args.dset == 'm2u':
 
@@ -192,8 +161,6 @@ def split_target(args):
         new_tar.data = np.delete(new_tar.data, np.where(train_idx==1)[0], axis=0)
         new_tar.labels = np.delete(new_tar.labels, np.where(train_idx==1)[0], axis=0)
 
-    # pdb.set_trace()
-
     return new_src, new_tar
 
 def Entropy(input_):
@@ -203,13 +170,9 @@ def Entropy(input_):
     return entropy 
 
 def data_load(args, txt_src, txt_tgt):
-    # transform = transforms.Compose([
-    #     transforms.Resize(32),
-    #     transforms.ToTensor(),
-    #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    # ])
+    
     t_domain = args.dset[2]
-    train_target, test_target = audio_dataset_read(t_domain)
+    train_target, test_target = audio_dataset_read(args, t_domain)
 
     dset_loaders = {}
     dset_loaders["train"] = DataLoader(train_target, batch_size=args.batch_size*2, shuffle=False, 
@@ -241,7 +204,7 @@ def cal_acc(loader, model, flag=True):
             inputs = data[0]
             labels = data[1]
             inputs = inputs.cuda()
-            outputs = model(inputs)
+            outputs, _ = model(inputs)
             if start_test:
                 all_output = outputs.float().cpu()
                 all_label = labels.float()
@@ -251,6 +214,7 @@ def cal_acc(loader, model, flag=True):
                 all_label = torch.cat((all_label, labels.float()), 0)
     all_output = nn.Softmax(dim=1)(all_output)
     _, predict = torch.max(all_output, 1)
+    _, all_label = torch.max(all_label, 1)
     accuracy = torch.sum(torch.squeeze(predict).float() == all_label).item() / float(all_label.size()[0])
 
     if flag:
@@ -265,33 +229,27 @@ def cal_acc(loader, model, flag=True):
 
 
 def train(args, txt_src, txt_tgt):
-    ## set pre-process
+
     dset_loaders = data_load(args, txt_src, txt_tgt)
-    # pdb.set_trace()
+
     max_len = max(len(dset_loaders["source"]), len(dset_loaders["target"]))
     max_iter = args.max_epoch*max_len
     interval_iter = max_iter // 10
 
-    netG = network.AudioClassifier().cuda()
-    # netB = network.feat_bottleneck(type=args.classifier, feature_dim=netG.in_features, bottleneck_dim=args.bottleneck).cuda()
-    netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
-
+    netG = network.Transfer_Cnn14(sample_rate = 32000, window_size = 1024, hop_size= 320, mel_bins = 64, fmin = 50, fmax = 14000, 
+        classes_num = 3, freeze_base = False, freeze_classifier = False).cuda()
+    
     if args.model == 'source':
-        modelpath = args.output_dir + "/source_F.pt" 
+        modelpath = args.output_dir + "/source_panns.pt" 
         netG.load_state_dict(torch.load(modelpath))
-        # modelpath = args.output_dir + "/source_B.pt"   
-        # netB.load_state_dict(torch.load(modelpath))
     else:
-        modelpath = args.output_dir + "/target_F_" + args.savename + ".pt" 
+        modelpath = args.output_dir + "/target_panns_" + args.savename + ".pt" 
         netG.load_state_dict(torch.load(modelpath))
-        # modelpath = args.output_dir + "/target_B_" + args.savename + ".pt"   
-        # netB.load_state_dict(torch.load(modelpath))
 
-    netF = nn.Sequential(netC)
-    optimizer_g = optim.SGD(netG.parameters(), lr = args.lr * 0.1)
-    optimizer_f = optim.SGD(netF.parameters(), lr = args.lr)
+    optimizer_g = optim.SGD(netG.base.parameters(), lr = args.lr * 0.1)
+    optimizer_f = optim.SGD(netG.fc_transfer.parameters(), lr = args.lr)
 
-    base_network = nn.Sequential(netG, netF)
+    base_network = nn.Sequential(netG)
     source_loader_iter = iter(dset_loaders["source"])
     target_loader_iter = iter(dset_loaders["target"])
 
@@ -309,13 +267,13 @@ def train(args, txt_src, txt_tgt):
             source_loader_iter = iter(dset_loaders["source"])
             inputs_source, labels_source = next(source_loader_iter)
         try:
-            # inputs_target, _, target_idx = next(target_loader_iter)
             inputs_target, _ = next(target_loader_iter)
         except:
             target_loader_iter = iter(dset_loaders["target"])
-            # inputs_target, _, target_idx = next(target_loader_iter)
             inputs_target, _ = next(target_loader_iter)
         
+        _, labels_source = torch.max(labels_source, 1) 
+
         targets_s = torch.zeros(args.batch_size, args.class_num).scatter_(1, labels_source.view(-1,1), 1)
         inputs_s = inputs_source.cuda()
         targets_s = targets_s.cuda()
@@ -324,8 +282,8 @@ def train(args, txt_src, txt_tgt):
 
         with torch.no_grad():
             # compute guessed labels of unlabel samples
-            outputs_u = base_network(inputs_t)
-            outputs_u2 = base_network(inputs_t2)
+            outputs_u, _ = base_network(inputs_t)
+            outputs_u2, _ = base_network(inputs_t2)
             p = (torch.softmax(outputs_u, dim=1) + torch.softmax(outputs_u2, dim=1)) / 2
             pt = p**(1/args.T)
             targets_u = pt / pt.sum(dim=1, keepdim=True)
@@ -349,15 +307,11 @@ def train(args, txt_src, txt_tgt):
         # interleave labeled and unlabed samples between batches to get correct batchnorm calculation 
         mixed_input = list(torch.split(mixed_input, args.batch_size))
         mixed_input = utils.interleave(mixed_input, args.batch_size)  
-        # s = [sa, sb, sc]
-        # t1 = [t1a, t1b, t1c]
-        # t2 = [t2a, t2b, t2c]
-        # => s' = [sa, t1b, t2c]   t1' = [t1a, sb, t1c]   t2' = [t2a, t2b, sc]
 
-        logits = base_network(mixed_input[0])
+        logits, _ = base_network(mixed_input[0])
         logits = [logits]
         for input in mixed_input[1:]:
-            temp = base_network(input)
+            temp, _ = base_network(input)
             logits.append(temp)
 
         # put interleaved samples back
@@ -414,9 +368,9 @@ def train(args, txt_src, txt_tgt):
     args.out_file.write(log_str + '\n')
     args.out_file.flush()  
 
-    # torch.save(base_network.state_dict(), osp.join(args.output_dir, args.log + ".pt"))
-    # sio.savemat(osp.join(args.output_dir, args.log + ".mat"), {'y':best_y.cpu().numpy(), 
-    #     'py':best_py.cpu().numpy(), 'score':best_score.cpu().numpy()})
+    torch.save(base_network.state_dict(), osp.join(args.output_dir, args.log + "final.pt"))
+    sio.savemat(osp.join(args.output_dir, args.log + ".mat"), {'y':best_y.cpu().numpy(), 
+        'py':best_py.cpu().numpy(), 'score':best_score.cpu().numpy()})
     
     return base_network, py
 
@@ -426,12 +380,12 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, default='ckps_mm')
     parser.add_argument('--output_tar', type=str, default='')
     parser.add_argument('--seed', type=int, default=2020, help="random seed")
-    parser.add_argument('--max_epoch', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=32, help="batch_size")
-    parser.add_argument('--worker', type=int, default=4, help="number of workers")
+    parser.add_argument('--max_epoch', type=int, default=400)
+    parser.add_argument('--batch_size', type=int, default=16, help="batch_size")
+    parser.add_argument('--worker', type=int, default=16, help="number of workers")
     parser.add_argument('--bottleneck_dim', type=int, default=9)
 
-    parser.add_argument('--dset', type=str, default='s2m', help="The dataset or source dataset used")
+    parser.add_argument('--dset', type=str, default='m2s', help="The dataset or source dataset used")
     parser.add_argument('--lr', type=float, default=1e-2, help="learning rate")
 
     parser.add_argument('--alpha', default=0.1, type=float)
@@ -456,9 +410,8 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(SEED)
     np.random.seed(SEED)
     random.seed(SEED)
-    # torch.backends.cudnn.deterministic = True
 
-    args.output_dir = osp.join(args.output_tar, 'seed' + str(args.seed), args.dset)
+    args.output_dir = osp.join(args.output_tar, 'seed2020', args.dset)
     args.savename = 'par_' + str(args.cls_par)
     if args.ssl > 0:
          args.savename += ('_ssl_' + str(args.ssl))
