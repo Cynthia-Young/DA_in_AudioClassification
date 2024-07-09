@@ -16,3 +16,8 @@
 
 **model**是训练好的模型，存为.pt格式
 
+## 模型下载
+
+适应后model与大规模数据预训练模型从这里下载：
+
+https://drive.google.com/drive/folders/1Bwj8j1RgLRc2fivcBVfhLRDqlz8gIHts?usp=drive_link
